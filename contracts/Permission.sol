@@ -5,7 +5,8 @@ contract Permission {
     address public owner;
     bool public addable = true;
     bool public updateable = true;
-    bool public mintable = false;
+    bool public tokenMintable = true;
+    bool public nftMintable = true;
     uint public networkID = 1;
     event OwnershipTransferred(address indexed _from, address indexed _to);
 
@@ -55,8 +56,13 @@ contract Permission {
         emit OwnershipTransferred(owner, _owner);
     }
 
-    function setMintable(bool value) onlyOwner external returns(bool){
-            mintable = value;
+    function setTokenMintable(bool value) onlyOwner external returns(bool){
+        tokenMintable = value;
+        return true;
+    }
+
+    function setNftMintable(bool value) onlyOwner external returns(bool){
+        nftMintable = value;
         return true;
     }
 

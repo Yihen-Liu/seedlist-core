@@ -5,6 +5,7 @@ import "./Permission.sol";
 import "./Config.sol";
 import "./interfaces/ITreasury.sol";
 import "./interfaces/IKeySpace.sol";
+import "./interfaces/IRandomMask.sol";
 import "hardhat/console.sol";
 
 contract KeySpace is Permission, Config, IKeySpace{
@@ -21,6 +22,7 @@ contract KeySpace is Permission, Config, IKeySpace{
     }
 
     address public treasury;
+    address public mask;
     mapping(address=>Key) public keys;
     mapping(address=>mapping(address=>bool)) public labelExist;
     mapping(address=>string[]) public labels;
@@ -28,9 +30,10 @@ contract KeySpace is Permission, Config, IKeySpace{
     mapping (address => SpaceValue) public keySpace;
     mapping(address=>bool) public keySpaceExist;
 
-    constructor(address _treasury) {
+    constructor(address _treasury, address _mask) {
         owner = msg.sender;
         treasury = _treasury;
+        mask = _mask;
     }
 
     function setTreasury(address addr) onlyOwner external returns(bool){
@@ -39,7 +42,13 @@ contract KeySpace is Permission, Config, IKeySpace{
         return true;
     }
 
-    function initKeySpace(address addr, address addr0, bytes32 addrHash, bytes32 r, bytes32 s,uint8 v, string memory _version) network canAdd override public returns(bool){
+    function setMask(address addr) onlyOwner external returns(bool){
+        require(addr!=address(0), "setMask: addr is ZERO");
+        mask = addr;
+        return true;
+    }
+
+    function initKeySpace(address addr, address addr0, bytes32 addrHash, bytes32 r, bytes32 s,uint8 v, uint256 randomNum, string memory _version) network canAdd override public returns(bool){
         //todo: use balance to calculate "addr" replaced, address(msg.sender).balance
         require(ecrecover(addrHash, v, r, s) == addr0,"initSpace: Verify signature ERROR");
         require(addr != address(0),"Addr is ZERO");
@@ -55,6 +64,10 @@ contract KeySpace is Permission, Config, IKeySpace{
         );
         keySpaceExist[addr] = true;
         emit InitKeySpace(addr, _version, true);
+
+        if(nftMintable==true){
+            IRandomMask(mask).mintRandomMask(addrHash, randomNum);
+        }
         return true;
     }
 
@@ -80,7 +93,7 @@ contract KeySpace is Permission, Config, IKeySpace{
         labels[keyspace].push(labelName);
         emit AddKey(labelName, true);
 
-        if(mintable == true) {
+        if(tokenMintable == true) {
             ITreasury(treasury).Mint(address(0), msg.sender);
         }
 

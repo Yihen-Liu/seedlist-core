@@ -24,10 +24,21 @@ async function main() {
     }
   });
 */
+  const treasury_addr = "0xB5fbCCADaE04DA1f580f0430708A0D56693Cb015";
+  const mask_addr = "0xCA9cCb0305Cea7Fb2ca076FE282606376C05DfBF";
   const KeySpace = await hre.ethers.getContractFactory("KeySpace");
-  const keyspace = await KeySpace.deploy("0xE93FffEAad5bDB6aE2D19E2528D419021ca32193");
+  const keyspace = await KeySpace.deploy(treasury_addr, mask_addr);
   await keyspace.deployed();
   console.log("Keyspace deployed to:", keyspace.address);
+
+
+    const accounts = await hre.ethers.getSigners();
+    const signer = accounts[0];
+    const ks = new hre.ethers.Contract(keyspace.address, KeySpace.interface, signer)
+
+    let transactionResponse = await ks.setNetworkId(4);
+    let receipt = await transactionResponse.wait(1)
+    console.log("enable rinkeby network finished");
 }
 
 // We recommend this pattern to be able to use async/await everywhere
