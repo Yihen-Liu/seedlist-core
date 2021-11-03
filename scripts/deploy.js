@@ -24,8 +24,8 @@ async function main() {
     }
   });
 */
-  const treasury_addr = "0xB5fbCCADaE04DA1f580f0430708A0D56693Cb015";
-  const mask_addr = "0xCA9cCb0305Cea7Fb2ca076FE282606376C05DfBF";
+  const treasury_addr = "0x10F26B6EcBF96774Ef8d584B3d852a80a603D36e";
+  const mask_addr = "0x988721B1350D549c2478664FAB3eCD5522A19908";
   const KeySpace = await hre.ethers.getContractFactory("KeySpace");
   const keyspace = await KeySpace.deploy(treasury_addr, mask_addr);
   await keyspace.deployed();

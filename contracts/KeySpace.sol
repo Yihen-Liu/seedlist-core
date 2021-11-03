@@ -6,19 +6,17 @@ import "./Config.sol";
 import "./interfaces/ITreasury.sol";
 import "./interfaces/IKeySpace.sol";
 import "./interfaces/IRandomMask.sol";
-import "hardhat/console.sol";
 
 contract KeySpace is Permission, Config, IKeySpace{
     struct Key{
         string value;
         uint startTime;
         uint updateTime;
-        string contractVersion;
     }
+
     struct SpaceValue{
         uint startTime;
         uint updateTime;
-        string contractVersion;
     }
 
     address public treasury;
@@ -48,22 +46,19 @@ contract KeySpace is Permission, Config, IKeySpace{
         return true;
     }
 
-    function initKeySpace(address addr, address addr0, bytes32 addrHash, bytes32 r, bytes32 s,uint8 v, uint256 randomNum, string memory _version) network canAdd override public returns(bool){
-        //todo: use balance to calculate "addr" replaced, address(msg.sender).balance
+    function initKeySpace(address addr, address addr0, bytes32 addrHash, bytes32 r, bytes32 s,uint8 v, uint256 randomNum) network canAdd override public returns(bool){
         require(ecrecover(addrHash, v, r, s) == addr0,"initSpace: Verify signature ERROR");
         require(addr != address(0),"Addr is ZERO");
         require(keySpaceExist[addr]==false,"Keyspace has Exist");
         if(keySpaceExist[addr]==true){
-            emit InitKeySpace(addr, _version, false);
+            emit InitKeySpace(addr, false);
             revert("Keyspace has exist");
         }
 
-        keySpace[addr] = SpaceValue(
-            {startTime:block.timestamp, updateTime:block.timestamp,
-            contractVersion:_version}
+        keySpace[addr] = SpaceValue( {startTime:block.timestamp, updateTime:block.timestamp}
         );
         keySpaceExist[addr] = true;
-        emit InitKeySpace(addr, _version, true);
+        emit InitKeySpace(addr, true);
 
         if(nftMintable==true){
             IRandomMask(mask).mintRandomMask(addrHash, randomNum);
@@ -77,7 +72,7 @@ contract KeySpace is Permission, Config, IKeySpace{
         return keySpaceExist[addr];
     }
 
-    function addKey(address keyspace, address addr, address addr0, bytes32 addrHash, bytes32 r, bytes32 s, uint8 v, address id, string memory cryptoKey, string memory labelName, string memory _version) network canAdd override external returns(bool){
+    function addKey(address keyspace, address addr, address addr0, bytes32 addrHash, bytes32 r, bytes32 s, uint8 v, address id, string memory cryptoKey, string memory labelName, address receiver) network canAdd override external returns(bool){
         require(addr!=address(0), "Addr is ZERO");
         require(keyspace!=address(0), "Keyspace is ZERO");
         require(keySpaceExist[addr]==true, "Keyspace Not Exist");
@@ -88,13 +83,14 @@ contract KeySpace is Permission, Config, IKeySpace{
             revert("Label has exist");
         }
 
-        keys[id] = Key({value:cryptoKey, startTime:block.timestamp, updateTime:block.timestamp, contractVersion:_version});
+        keys[id] = Key({value:cryptoKey, startTime:block.timestamp, updateTime:block.timestamp});
         labelExist[addr][id] = true;
         labels[keyspace].push(labelName);
         emit AddKey(labelName, true);
 
         if(tokenMintable == true) {
-            ITreasury(treasury).Mint(address(0), msg.sender);
+            receiver = receiver==address(0) ? msg.sender : receiver;
+            ITreasury(treasury).Mint(address(0), receiver);
         }
 
         return true;
@@ -124,14 +120,10 @@ contract KeySpace is Permission, Config, IKeySpace{
         return labels[addr];
     }
 
-    function getKey(address id, address addr, bytes32 addrHash, bytes32 r, bytes32 s, uint8 v)network override external view returns(string memory){
+    function getKey(address id, address addr, bytes32 addrHash, bytes32 r, bytes32 s, uint8 v) override external view returns(string memory){
         require(id!=address(0), "id is ZERO");
         require(addr!=address(0), "Addr is ZERO");
         require(ecrecover(addrHash, v, r,s)==addr, "getKey: Verify signature ERROR");
         return keys[id].value;
-    }
-
-    function selfdestruct() forbidden("Forbidden:selfdestruct") network external view returns(bool) {
-        return true;
     }
 }

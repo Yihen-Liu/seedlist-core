@@ -10,11 +10,6 @@ contract Permission {
     uint public networkID = 1;
     event OwnershipTransferred(address indexed _from, address indexed _to);
 
-    modifier forbidden(string memory s) {
-        revert(s);
-        _;
-    }
-
     modifier network() {
         uint chainId;
         assembly {
