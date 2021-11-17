@@ -4,23 +4,25 @@ pragma solidity>=0.8.2;
 import "./Permission.sol";
 import "./Config.sol";
 import "./interfaces/ITreasury.sol";
-import "./interfaces/IKeySpace.sol";
+import "./interfaces/IEncryptMachine.sol";
 import "./interfaces/IRandomMask.sol";
+import "./interfaces/IERC20.sol";
 
-contract KeySpace is Permission, Config, IKeySpace{
+contract DefaultEncrypt is Permission, Config, IEncryptMachine{
     struct Key{
         string value;
         uint startTime;
         uint updateTime;
     }
-
     struct SpaceValue{
         uint startTime;
         uint updateTime;
     }
 
+    mapping(address=>string) encryptText;
     address public treasury;
     address public mask;
+    address public seedToken;
     mapping(address=>Key) public keys;
     mapping(address=>mapping(address=>bool)) public labelExist;
     mapping(address=>string[]) public labels;
@@ -28,10 +30,11 @@ contract KeySpace is Permission, Config, IKeySpace{
     mapping (address => SpaceValue) public keySpace;
     mapping(address=>bool) public keySpaceExist;
 
-    constructor(address _treasury, address _mask) {
+    constructor(address _treasury, address _mask, address _seedToken) {
         owner = msg.sender;
         treasury = _treasury;
         mask = _mask;
+        seedToken = _seedToken;
     }
 
     function setTreasury(address addr) onlyOwner external returns(bool){
@@ -72,7 +75,7 @@ contract KeySpace is Permission, Config, IKeySpace{
         return keySpaceExist[addr];
     }
 
-    function addKey(address keyspace, address addr, address addr0, bytes32 addrHash, bytes32 r, bytes32 s, uint8 v, address id, string memory cryptoKey, string memory labelName, address receiver) network canAdd override external returns(bool){
+    function addKey(address keyspace, address addr, address addr0, bytes32 addrHash, bytes32 r, bytes32 s, uint8 v, address id, address kid, string memory cryptoKey, string memory labelName) network canAdd override external returns(bool){
         require(addr!=address(0), "Addr is ZERO");
         require(keyspace!=address(0), "Keyspace is ZERO");
         require(keySpaceExist[addr]==true, "Keyspace Not Exist");
@@ -83,17 +86,54 @@ contract KeySpace is Permission, Config, IKeySpace{
             revert("Label has exist");
         }
 
-        keys[id] = Key({value:cryptoKey, startTime:block.timestamp, updateTime:block.timestamp});
+        keys[kid] = Key({value:cryptoKey, startTime:block.timestamp, updateTime:block.timestamp});
         labelExist[addr][id] = true;
         labels[keyspace].push(labelName);
         emit AddKey(labelName, true);
 
         if(tokenMintable == true) {
-            receiver = receiver==address(0) ? msg.sender : receiver;
-            ITreasury(treasury).Mint(address(0), receiver);
+            //receiver = receiver==address(0) ? msg.sender : receiver;
+            ITreasury(treasury).Mint(address(0), msg.sender);
         }
 
         return true;
+    }
+
+    function substring(string memory str, uint startIndex, uint endIndex) internal pure returns (string memory) {
+        require(endIndex>startIndex,"end > start");
+        bytes memory strBytes = bytes(str);
+        bytes memory result = new bytes(endIndex-startIndex);
+        for(uint i = startIndex; i < endIndex; i++) {
+            result[i-startIndex] = strBytes[i];
+        }
+        return string(result);
+    }
+
+    function addSplitKey(address keyspace, address addr, address addr0, bytes32 addrHash, bytes32 r, bytes32 s, uint8 v, address id, address kid0,address kid1, string memory cryptoKey, string memory labelName) network canAdd external {
+        require(addr!=address(0), "Addr is ZERO");
+        require(keyspace!=address(0), "Keyspace is ZERO");
+        require(keySpaceExist[addr]==true, "Keyspace Not Exist");
+        require(ecrecover(addrHash, v, r,s)==addr0, "Verify signature ERROR");
+        uint textlen = bytes(cryptoKey).length;
+        require(textlen<=MAX_CRYPTO_KEY_LEN, "Crypto Key Length > 2048");
+        if(labelExist[addr][id] == true){
+            emit AddKey(labelName, false);
+            revert("Label has exist");
+        }
+
+        //keys[kid] = Key({value:cryptoKey, startTime:block.timestamp, updateTime:block.timestamp});
+        encryptText[kid0] = substring(cryptoKey,0,textlen/2);
+        encryptText[kid1] = substring(cryptoKey,textlen/2,textlen);
+        labelExist[addr][id] = true;
+        labels[keyspace].push(labelName);
+        emit AddKey(labelName, true);
+
+        if(tokenMintable == true) {
+            //receiver = receiver==address(0) ? msg.sender : receiver;
+            ITreasury(treasury).Mint(address(0), msg.sender);
+        }
+
+        //return true;
     }
 
     function isLabelExist(address addr, bytes32 addrHash, bytes32 r, bytes32 s, uint8 v, address labelId) network external override view returns(bool) {
@@ -116,7 +156,7 @@ contract KeySpace is Permission, Config, IKeySpace{
 
     function unstrictLabels(address addr, bytes32 addrHash, bytes32 r, bytes32 s, uint8 v)network override external view returns(string[] memory){
         require(addr!=address(0), "Addr is ZERO");
-        require(ecrecover(addrHash, v, r,s)==addr, "unstrict labels: Verify signature ERROR");
+        require(ecrecover(addrHash, v, r, s)==addr, "unstrict labels: Verify signature ERROR");
         return labels[addr];
     }
 
@@ -125,5 +165,15 @@ contract KeySpace is Permission, Config, IKeySpace{
         require(addr!=address(0), "Addr is ZERO");
         require(ecrecover(addrHash, v, r,s)==addr, "getKey: Verify signature ERROR");
         return keys[id].value;
+    }
+
+    function getSplitKey(address addr, bytes32 addrHash, bytes32 r, bytes32 s, uint8 v, address kid0, address kid1) external view returns(string memory, string memory){
+        require(addr!=address(0), "Addr is ZERO");
+        require(ecrecover(addrHash, v, r,s)==addr, "getKey: Verify signature ERROR");
+        return (encryptText[kid0], encryptText[kid1]);
+    }
+
+    function withdraw(address receiver, uint256 amount) override external onlyOwner returns(bool){
+        return IERC20(seedToken).transfer(receiver, amount);
     }
 }

@@ -24,21 +24,22 @@ async function main() {
     }
   });
 */
-  const treasury_addr = "0x10F26B6EcBF96774Ef8d584B3d852a80a603D36e";
-  const mask_addr = "0x988721B1350D549c2478664FAB3eCD5522A19908";
-  const KeySpace = await hre.ethers.getContractFactory("KeySpace");
-  const keyspace = await KeySpace.deploy(treasury_addr, mask_addr);
-  await keyspace.deployed();
-  console.log("Keyspace deployed to:", keyspace.address);
+  const treasury_addr = "0x06a9986cdb99642B776cA6C772932d6f7ec5cb94";
+  const mask_addr = "0x96EAE123Ea4439D443042bD8699DE32a5940Ad5D";
+  const seeder_addr = "0xa32a90C856Fa523f83bEEB281f2Eb04EEB724225";
+  const DefaultEncrypt = await hre.ethers.getContractFactory("DefaultEncrypt");
+  const encrypt = await DefaultEncrypt.deploy(treasury_addr, mask_addr, seeder_addr);
+  await encrypt.deployed();
+  console.log("DefaultEncrypt deployed to:", encrypt.address);
 
 
-    const accounts = await hre.ethers.getSigners();
-    const signer = accounts[0];
-    const ks = new hre.ethers.Contract(keyspace.address, KeySpace.interface, signer)
+  const accounts = await hre.ethers.getSigners();
+  const signer = accounts[0];
+  const de = new hre.ethers.Contract(encrypt.address, DefaultEncrypt.interface, signer)
 
-    let transactionResponse = await ks.setNetworkId(4);
-    let receipt = await transactionResponse.wait(1)
-    console.log("enable rinkeby network finished");
+  let transactionResponse = await de.setNetworkId(4);
+  let receipt = await transactionResponse.wait(1)
+  console.log("enable rinkeby network finished");
 }
 
 // We recommend this pattern to be able to use async/await everywhere
